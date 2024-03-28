@@ -1,0 +1,3 @@
+Useful utilities and test tools for NE-Five's camera system. None of the examples work by default from Luxonis as I have three colour cameras and they assume colour center and stereo mono.
+
+Requirements as per requirements.txt: `pip install -r requirements.txt` to set up a new environment, ideally in a venv...
