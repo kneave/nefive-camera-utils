@@ -30,26 +30,26 @@ pipeline = dai.Pipeline()
 camRgb = pipeline.create(dai.node.ColorCamera)
 colorLeft = pipeline.create(dai.node.ColorCamera)
 colorRight = pipeline.create(dai.node.ColorCamera)
-depth = pipeline.create(dai.node.StereoDepth)
+stereo = pipeline.create(dai.node.StereoDepth)
 pointcloud = pipeline.create(dai.node.PointCloud)
 sync = pipeline.create(dai.node.Sync)
 xOut = pipeline.create(dai.node.XLinkOut)
 xOut.input.setBlocking(False)
 
-camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
 camRgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
-camRgb.setIspScale(1,3)
+camRgb.setIspScale(1,4)
 camRgb.setFps(FPS)
 
 colorLeft.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1200_P)
 colorLeft.setBoardSocket(dai.CameraBoardSocket.CAM_B)
-colorLeft.setIspScale(1,3)
+colorLeft.setIspScale(1,4)
 colorLeft.setFps(FPS)
 colorLeft.initialControl.setFrameSyncMode(dai.CameraControl.FrameSyncMode.INPUT)
 
 colorRight.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1200_P)
 colorRight.setBoardSocket(dai.CameraBoardSocket.CAM_C)
-colorRight.setIspScale(1,3)
+colorRight.setIspScale(1,4)
 colorRight.setFps(FPS)
 colorRight.initialControl.setFrameSyncMode(dai.CameraControl.FrameSyncMode.INPUT)
 
@@ -68,42 +68,48 @@ The best combo of filters is application specific. Hard to say there is a one si
 They also are not free. Even though they happen on device, you pay a penalty in fps.
 """
 
-# stereoDepthNode.initialConfig.setBilateralFilterSigma(16)
-config = depth.initialConfig.get()
-# config.postProcessing.speckleFilter.enable = True
-# config.postProcessing.speckleFilter.speckleRange = 60
-# config.postProcessing.temporalFilter.enable = True
-# config.postProcessing.temporalFilter.persistencyMode = dai.StereoDepthConfig.PostProcessing.TemporalFilter.PersistencyMode.VALID_1_IN_LAST_5
+stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_ACCURACY)
+stereo.initialConfig.setDepthUnit(stereo.initialConfig.AlgorithmControl.DepthUnit.MILLIMETER)
 
-# config.postProcessing.spatialFilter.holeFillingRadius = 2
-# config.postProcessing.spatialFilter.numIterations = 1
-# config.postProcessing.thresholdFilter.minRange = 150  # mm
-# config.postProcessing.thresholdFilter.maxRange = 1500  # mm
-config.postProcessing.decimationFilter.decimationFactor = 3
-# config.censusTransform.enableMeanMode = True
-# config.costMatching.linearEquationParameters.alpha = 0
-# config.costMatching.linearEquationParameters.beta = 2
+stereo.initialConfig.setExtendedDisparity(True)
+stereo.initialConfig.setSubpixel(True)
+stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
+stereo.initialConfig.setConfidenceThreshold(168)
+stereo.initialConfig.setLeftRightCheckThreshold(7)
+stereo.initialConfig.setSubpixelFractionalBits(3)
+stereo.initialConfig.setNumInvalidateEdgePixels(4)
 
-depth.initialConfig.setDepthUnit(depth.initialConfig.AlgorithmControl.DepthUnit.MILLIMETER)
+config = stereo.initialConfig.get()
+config.postProcessing.temporalFilter.enable = True
+config.postProcessing.temporalFilter.persistencyMode = dai.StereoDepthConfig.PostProcessing.TemporalFilter.PersistencyMode.VALID_2_IN_LAST_3
+config.censusTransform.enableMeanMode = True
+config.costMatching.linearEquationParameters.alpha = 5
+config.costMatching.linearEquationParameters.beta = 1
+config.costMatching.linearEquationParameters.threshold = 79
+config.costAggregation.horizontalPenaltyCostP1 = 2
+config.costAggregation.horizontalPenaltyCostP2 = 235
+config.postProcessing.temporalFilter.alpha = 0.1
+config.postProcessing.temporalFilter.delta = 3
+config.postProcessing.thresholdFilter.minRange = 0
+config.postProcessing.thresholdFilter.maxRange = 65000
+config.postProcessing.speckleFilter.enable = True
+config.postProcessing.speckleFilter.speckleRange = 8
+config.postProcessing.decimationFilter.decimationFactor = 1
 
-depth.initialConfig.set(config)
-# depth.setRectifyEdgeFillColor(0)  # Black, to better see the cutout
 
-depth.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
-depth.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
-depth.setLeftRightCheck(True)
-depth.setExtendedDisparity(True)
-depth.setSubpixel(False)
+stereo.initialConfig.set(config)
 
-depth.setDepthAlign(dai.CameraBoardSocket.CAM_A)
 
-pointcloud.initialConfig.setSparse(False)
+# stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
+stereo.setDepthAlign(camera=dai.CameraBoardSocket.RIGHT)
+stereo.setRectification(True)
+pointcloud.initialConfig.setSparse(True)
 
 # manipLeft.out.link(depth.left)
 # manipRight.out.link(depth.right)
-colorLeft.isp.link(depth.left)
-colorRight.isp.link(depth.right)
-depth.depth.link(pointcloud.inputDepth)
+colorLeft.isp.link(stereo.left)
+colorRight.isp.link(stereo.right)
+stereo.depth.link(pointcloud.inputDepth)
 camRgb.isp.link(sync.inputs["rgb"])
 pointcloud.outputPointCloud.link(sync.inputs["pcl"])
 sync.out.link(xOut.input)

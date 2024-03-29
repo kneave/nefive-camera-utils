@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import depthai as dai
 import argparse
+from datetime import timedelta
 
 # Weights to use when blending depth/rgb image (should equal 1.0)
 rgbWeight = 0.4
@@ -39,14 +40,22 @@ center = pipeline.create(dai.node.ColorCamera)
 left = pipeline.create(dai.node.ColorCamera)
 right = pipeline.create(dai.node.ColorCamera)
 stereo = pipeline.create(dai.node.StereoDepth)
+sync = pipeline.create(dai.node.Sync)
 
 centerOut = pipeline.create(dai.node.XLinkOut)
+leftOut = pipeline.create(dai.node.XLinkOut)
 rightOut = pipeline.create(dai.node.XLinkOut)
 disparityOut = pipeline.create(dai.node.XLinkOut)
 rectOut = pipeline.create(dai.node.XLinkOut)
+xoutGrp = pipeline.create(dai.node.XLinkOut)
+xoutGrp.setStreamName("xout")
+
+sync.setSyncThreshold(timedelta(milliseconds=50))
 
 centerOut.setStreamName("center")
 queueNames.append("center")
+leftOut.setStreamName("left")
+queueNames.append("left")
 rightOut.setStreamName("right")
 queueNames.append("right")
 disparityOut.setStreamName("disp")
@@ -91,16 +100,21 @@ right.initialControl.setFrameSyncMode(dai.CameraControl.FrameSyncMode.INPUT)
 stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
 # LR-check is required for depth alignment
 stereo.setLeftRightCheck(True)
+# stereo.setDepthAlign(dai.RawStereoDepthConfig.AlgorithmControl.DepthAlign.RECTIFIED_RIGHT)
 stereo.setDepthAlign(dai.CameraBoardSocket.CAM_C)
+# stereo.setDepthAlign()
 
 # Linking
 center.isp.link(centerOut.input)
 left.isp.link(stereo.left)
 right.isp.link(stereo.right)
+left.isp.link(leftOut.input)
 right.isp.link(rightOut.input)
-stereo.disparity.link(disparityOut.input)
+stereo.disparity.link(sync.inputs["disparity"])
+# center.isp.link(sync.inputs["center"])
 stereo.rectifiedRight.link(rectOut.input)
 
+sync.out.link(xoutGrp.input)
 
 stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
 stereo.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
@@ -137,17 +151,20 @@ with device:
     device.startPipeline(pipeline)
 
     frameRgb = None
+    frameLeft = None
     frameRight = None
     frameDisp = None
     frameRect = None
 
     # Configure windows; trackbar adjusts blending ratio of rgb/depth
     centerWindowName = "center"
+    leftWindowName = "right"
     rightWindowName = "right"
     depthWindowName = "depth"
     rectWindowName = "rect"
     blendedWindowName = "rgb-depth"
     cv2.namedWindow(centerWindowName)
+    cv2.namedWindow(leftWindowName)
     cv2.namedWindow(rightWindowName)
     cv2.namedWindow(depthWindowName)
     cv2.namedWindow(blendedWindowName)
@@ -158,22 +175,27 @@ with device:
         latestPacket = {}
         latestPacket["center"] = None
         latestPacket["disp"] = None
+        latestPacket["left"] = None
         latestPacket["right"] = None
         latestPacket["rect"] = None
 
-        queueEvents = device.getQueueEvents(("center", "disp", "right", "rect"))
+        queueEvents = device.getQueueEvents(("center", "disp", "left", "right", "rect"))
         for queueName in queueEvents:
-            packets = device.getOutputQueue(queueName).tryGetAll()
+            packets = device.getOutputQueue("xout").tryGetAll()
             if len(packets) > 0:
                 latestPacket[queueName] = packets[-1]
 
         if latestPacket["center"] is not None:
-            frameCenter = latestPacket["center"].getCvFrame()
-            cv2.imshow(centerWindowName, frameCenter)
+            frameCenter = latestPacket["center"]
+            cv2.imshow(centerWindowName, frameCenter.getCvFrame())
+
+        if latestPacket["left"] is not None:
+            frameLeft = latestPacket["left"]
+            cv2.imshow(leftWindowName, frameLeft.getCvFrame()) 
 
         if latestPacket["right"] is not None:
-            frameRight = latestPacket["right"].getCvFrame()
-            cv2.imshow(rightWindowName, frameRight)
+            frameRight = latestPacket["right"]
+            cv2.imshow(rightWindowName, frameRight.getCvFrame())
 
         if latestPacket["rect"] is not None:
             frameRect = latestPacket["rect"].getCvFrame()
@@ -188,6 +210,16 @@ with device:
             if 1: frameDisp = cv2.applyColorMap(frameDisp, cv2.COLORMAP_HOT)
             frameDisp = np.ascontiguousarray(frameDisp)
             cv2.imshow(depthWindowName, frameDisp)
+
+        if((frameCenter is not None) and (frameLeft is not None) and (frameRight is not None)):
+            print("=====================")
+            # print(f"Center timestamp: {frameCenter.getTimestamp()}")
+            # print(f"Left timestamp: {frameLeft.getTimestamp()}")
+            # print(f"Right timestamp: {frameRight.getTimestamp()}")
+
+            print("Right - Left:\t{:.6f}".format(frameRight.getTimestamp().total_seconds() - frameLeft.getTimestamp().total_seconds()))
+            print("Right - Center\t{:.6f}".format(frameRight.getTimestamp().total_seconds() - frameCenter.getTimestamp().total_seconds()))
+
 
         # # Blend when both received
         # if frameCenter is not None and frameDisp is not None:
