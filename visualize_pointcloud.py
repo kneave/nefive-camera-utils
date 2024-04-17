@@ -38,7 +38,7 @@ xOut.input.setBlocking(False)
 
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
 camRgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
-camRgb.setIspScale(1,4)
+camRgb.setIspScale(1,3)
 camRgb.setFps(FPS)
 
 colorLeft.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1200_P)
@@ -91,30 +91,32 @@ config.costAggregation.horizontalPenaltyCostP2 = 235
 config.postProcessing.temporalFilter.alpha = 0.1
 config.postProcessing.temporalFilter.delta = 3
 config.postProcessing.thresholdFilter.minRange = 0
-config.postProcessing.thresholdFilter.maxRange = 65000
+config.postProcessing.thresholdFilter.maxRange = 650
 config.postProcessing.speckleFilter.enable = True
 config.postProcessing.speckleFilter.speckleRange = 8
 config.postProcessing.decimationFilter.decimationFactor = 1
-
+config.costMatching.disparityWidth = dai.StereoDepthConfig.CostMatching.DisparityWidth.DISPARITY_64
 
 stereo.initialConfig.set(config)
 
 
 # stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
-stereo.setDepthAlign(camera=dai.CameraBoardSocket.RIGHT)
-stereo.setRectification(True)
-pointcloud.initialConfig.setSparse(True)
+stereo.setDepthAlign(camera=dai.CameraBoardSocket.CAM_C)
+# stereo.setRectification(True)
+# pointcloud.initialConfig.setSparse(True)
 
 # manipLeft.out.link(depth.left)
 # manipRight.out.link(depth.right)
 colorLeft.isp.link(stereo.left)
 colorRight.isp.link(stereo.right)
 stereo.depth.link(pointcloud.inputDepth)
-camRgb.isp.link(sync.inputs["rgb"])
+# camRgb.isp.link(sync.inputs["rgb"])
+colorRight.isp.link(sync.inputs["rgb"])
 pointcloud.outputPointCloud.link(sync.inputs["pcl"])
+# camRgb.isp.link(xOut.inputs["rgb"])
+# pointcloud.outputPointCloud.link(xOut.inputs["pcl"])
 sync.out.link(xOut.input)
 xOut.setStreamName("out")
-
 
 
 
@@ -159,8 +161,11 @@ with dai.Device(pipeline) as device:
 
             points = inPointCloud.getPoints().astype(np.float64)
             pcd.points = o3d.utility.Vector3dVector(points)
+            # pcd = pcd.voxel_down_sample(voxel_size=0.01)
             colors = (cvRGBFrame.reshape(-1, 3) / 255.0).astype(np.float64)
             pcd.colors = o3d.utility.Vector3dVector(colors)
+            # pcd = pcd.remove_statistical_outlier(30, 0.1)[0]
+            
             if first:
                 vis.add_geometry(pcd)
                 first = False

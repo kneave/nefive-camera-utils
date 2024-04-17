@@ -49,7 +49,7 @@ config.postProcessing.thresholdFilter.maxRange = 65000
 config.postProcessing.speckleFilter.enable = True
 config.postProcessing.speckleFilter.speckleRange = 8
 config.postProcessing.decimationFilter.decimationFactor = 1
-
+config.costMatching.disparityWidth = dai.StereoDepthConfig.CostMatching.DisparityWidth.DISPARITY_64
 
 stereo.initialConfig.set(config)
 
