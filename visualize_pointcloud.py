@@ -36,7 +36,7 @@ sync = pipeline.create(dai.node.Sync)
 xOut = pipeline.create(dai.node.XLinkOut)
 xOut.input.setBlocking(False)
 
-camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
+camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
 camRgb.setIspScale(1,4)
 camRgb.setFps(FPS)
@@ -73,7 +73,7 @@ stereo.initialConfig.setDepthUnit(stereo.initialConfig.AlgorithmControl.DepthUni
 
 stereo.initialConfig.setExtendedDisparity(True)
 stereo.initialConfig.setSubpixel(True)
-stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
+# stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
 stereo.initialConfig.setConfidenceThreshold(168)
 stereo.initialConfig.setLeftRightCheckThreshold(7)
 stereo.initialConfig.setSubpixelFractionalBits(3)
@@ -91,7 +91,7 @@ config.costAggregation.horizontalPenaltyCostP2 = 235
 config.postProcessing.temporalFilter.alpha = 0.1
 config.postProcessing.temporalFilter.delta = 3
 config.postProcessing.thresholdFilter.minRange = 0
-config.postProcessing.thresholdFilter.maxRange = 65000
+config.postProcessing.thresholdFilter.maxRange = 6000 # max distance in depth units
 config.postProcessing.speckleFilter.enable = True
 config.postProcessing.speckleFilter.speckleRange = 8
 config.postProcessing.decimationFilter.decimationFactor = 1
@@ -101,7 +101,7 @@ stereo.initialConfig.set(config)
 
 
 # stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
-stereo.setDepthAlign(camera=dai.CameraBoardSocket.RIGHT)
+stereo.setDepthAlign(camera=dai.CameraBoardSocket.CAM_C)
 stereo.setRectification(True)
 pointcloud.initialConfig.setSparse(True)
 
@@ -110,7 +110,7 @@ pointcloud.initialConfig.setSparse(True)
 colorLeft.isp.link(stereo.left)
 colorRight.isp.link(stereo.right)
 stereo.depth.link(pointcloud.inputDepth)
-camRgb.isp.link(sync.inputs["rgb"])
+colorRight.isp.link(sync.inputs["rgb"])
 pointcloud.outputPointCloud.link(sync.inputs["pcl"])
 sync.out.link(xOut.input)
 xOut.setStreamName("out")

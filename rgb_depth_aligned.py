@@ -150,7 +150,7 @@ if alpha is not None:
 with device:
     device.startPipeline(pipeline)
 
-    frameRgb = None
+    frameCenter = None
     frameLeft = None
     frameRight = None
     frameDisp = None
@@ -186,16 +186,16 @@ with device:
                 latestPacket[queueName] = packets[-1]
 
         if latestPacket["center"] is not None:
-            frameCenter = latestPacket["center"]
-            cv2.imshow(centerWindowName, frameCenter.getCvFrame())
+            frameCenter = latestPacket["center"].
+            cv2.imshow(centerWindowName, frameCenter.getFrame())
 
         if latestPacket["left"] is not None:
             frameLeft = latestPacket["left"]
-            cv2.imshow(leftWindowName, frameLeft.getCvFrame()) 
+            cv2.imshow(leftWindowName, frameLeft.getFrame()) 
 
         if latestPacket["right"] is not None:
             frameRight = latestPacket["right"]
-            cv2.imshow(rightWindowName, frameRight.getCvFrame())
+            cv2.imshow(rightWindowName, frameRight.getFrame())
 
         if latestPacket["rect"] is not None:
             frameRect = latestPacket["rect"].getCvFrame()
