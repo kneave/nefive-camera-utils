@@ -71,13 +71,15 @@ They also are not free. Even though they happen on device, you pay a penalty in 
 stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_ACCURACY)
 stereo.initialConfig.setDepthUnit(stereo.initialConfig.AlgorithmControl.DepthUnit.MILLIMETER)
 
-stereo.initialConfig.setExtendedDisparity(True)
+stereo.initialConfig.setExtendedDisparity(False)
 stereo.initialConfig.setSubpixel(True)
-# stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
+# stereo.initialConfig.setMedianFilter(dai.MedianFilter.MEDIAN_OFF)
+stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
 stereo.initialConfig.setConfidenceThreshold(168)
 stereo.initialConfig.setLeftRightCheckThreshold(7)
 stereo.initialConfig.setSubpixelFractionalBits(3)
 stereo.initialConfig.setNumInvalidateEdgePixels(4)
+stereo.initialConfig.setDisparityShift(5)
 
 config = stereo.initialConfig.get()
 config.postProcessing.temporalFilter.enable = True
@@ -90,8 +92,8 @@ config.costAggregation.horizontalPenaltyCostP1 = 2
 config.costAggregation.horizontalPenaltyCostP2 = 235
 config.postProcessing.temporalFilter.alpha = 0.1
 config.postProcessing.temporalFilter.delta = 3
-config.postProcessing.thresholdFilter.minRange = 0
-config.postProcessing.thresholdFilter.maxRange = 650
+config.postProcessing.thresholdFilter.minRange = 100
+config.postProcessing.thresholdFilter.maxRange = 1500
 config.postProcessing.speckleFilter.enable = True
 config.postProcessing.speckleFilter.speckleRange = 8
 config.postProcessing.decimationFilter.decimationFactor = 1
@@ -99,11 +101,10 @@ config.costMatching.disparityWidth = dai.StereoDepthConfig.CostMatching.Disparit
 
 stereo.initialConfig.set(config)
 
-
-# stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
-stereo.setDepthAlign(camera=dai.CameraBoardSocket.CAM_C)
-# stereo.setRectification(True)
-# pointcloud.initialConfig.setSparse(True)
+stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
+# stereo.setDepthAlign(camera=dai.CameraBoardSocket.CAM_C)
+stereo.setRectification(True)
+pointcloud.initialConfig.setSparse(True)
 
 # manipLeft.out.link(depth.left)
 # manipRight.out.link(depth.right)
@@ -113,8 +114,6 @@ stereo.depth.link(pointcloud.inputDepth)
 # camRgb.isp.link(sync.inputs["rgb"])
 colorRight.isp.link(sync.inputs["rgb"])
 pointcloud.outputPointCloud.link(sync.inputs["pcl"])
-# camRgb.isp.link(xOut.inputs["rgb"])
-# pointcloud.outputPointCloud.link(xOut.inputs["pcl"])
 sync.out.link(xOut.input)
 xOut.setStreamName("out")
 
