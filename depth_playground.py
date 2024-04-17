@@ -161,7 +161,9 @@ class StereoConfigHandler:
     trDisparityShift = list()
     trCenterAlignmentShift = list()
     trInvalidateEdgePixels = list()
-
+    trBrightnessFilterMinValue = list()
+    trBrightnessFilterMaxValue = list()
+    
     def trackbarSigma(value):
         StereoConfigHandler.config.postProcessing.bilateralSigmaValue = value
         StereoConfigHandler.newConfig = True
@@ -299,6 +301,18 @@ class StereoConfigHandler:
         print(f"numInvalidateEdgePixels: {StereoConfigHandler.config.algorithmControl.numInvalidateEdgePixels:.2f}")
         StereoConfigHandler.newConfig = True
         for tr in StereoConfigHandler.trInvalidateEdgePixels:
+            tr.set(value)
+
+    def trackbarBrightnessFilterMinValue(value):
+        StereoConfigHandler.config.postProcessing.brightnessFilter.minBrightness = value
+        StereoConfigHandler.newConfig = True
+        for tr in StereoConfigHandler.trBrightnessFilterMinValue:
+            tr.set(value)
+
+    def trackbarBrightnessFilterMaxValue(value):
+        StereoConfigHandler.config.postProcessing.brightnessFilter.maxBrightness = value
+        StereoConfigHandler.newConfig = True
+        for tr in StereoConfigHandler.trBrightnessFilterMaxValue:
             tr.set(value)
 
     def handleKeypress(key, stereoDepthConfigInQueue):
@@ -450,20 +464,6 @@ class StereoConfigHandler:
                              }
             print(config_output)
 
-
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         censusMaskChanged = False
         if StereoConfigHandler.censusMaskHandler is not None:
@@ -509,7 +509,9 @@ class StereoConfigHandler:
         StereoConfigHandler.trThresholdMaxRange.append(StereoConfigHandler.Trackbar("Threshold filter max range", stream, 0, 65, StereoConfigHandler.config.postProcessing.thresholdFilter.maxRange, StereoConfigHandler.trackbarThresholdMaxRange))
         StereoConfigHandler.trSpeckleRange.append(StereoConfigHandler.Trackbar("Speckle filter range", stream, 0, 240, StereoConfigHandler.config.postProcessing.speckleFilter.speckleRange, StereoConfigHandler.trackbarSpeckleRange))
         StereoConfigHandler.trDecimationFactor.append(StereoConfigHandler.Trackbar("Decimation factor", stream, 1, 4, StereoConfigHandler.config.postProcessing.decimationFilter.decimationFactor, StereoConfigHandler.trackbarDecimationFactor))
-
+        StereoConfigHandler.trBrightnessFilterMinValue.append(StereoConfigHandler.Trackbar("Brightness filter min value", stream, 0, 255, StereoConfigHandler.config.postProcessing.brightnessFilter.minBrightness, StereoConfigHandler.trackbarBrightnessFilterMinValue))
+        StereoConfigHandler.trBrightnessFilterMaxValue.append(StereoConfigHandler.Trackbar("Brightness filter max value", stream, 0, 255, StereoConfigHandler.config.postProcessing.brightnessFilter.maxBrightness, StereoConfigHandler.trackbarBrightnessFilterMaxValue))
+        
     def __init__(self, config):
         print("Control median filter using the 'm' key.")
         print("Control census transform kernel size using the 'c' key.")
@@ -548,7 +550,7 @@ outDepth = True  # Disparity by default
 outConfidenceMap = True  # Output disparity confidence map
 outRectified = True   # Output and display rectified streams
 lrcheck = True   # Better handling for occlusions
-extended = False  # Closer-in minimum depth, disparity range is doubled. Unsupported for now.
+extended = True  # Closer-in minimum depth, disparity range is doubled. Unsupported for now.
 subpixel = True   # Better accuracy for longer distance, fractional disparity 32-levels
 
 width = 1280
@@ -615,6 +617,38 @@ stereo.setRectifyEdgeFillColor(0) # Black, to better see the cutout
 stereo.setLeftRightCheck(lrcheck)
 stereo.setExtendedDisparity(extended)
 stereo.setSubpixel(subpixel)
+
+stereo.initialConfig.setDepthUnit(stereo.initialConfig.AlgorithmControl.DepthUnit.MILLIMETER)
+stereo.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
+stereo.initialConfig.setConfidenceThreshold(168)
+stereo.initialConfig.setLeftRightCheckThreshold(7)
+stereo.initialConfig.setSubpixelFractionalBits(3)
+stereo.initialConfig.setNumInvalidateEdgePixels(4)
+
+config = stereo.initialConfig.get()
+config.postProcessing.temporalFilter.enable = True
+config.postProcessing.temporalFilter.persistencyMode = dai.StereoDepthConfig.PostProcessing.TemporalFilter.PersistencyMode.VALID_2_IN_LAST_3
+config.censusTransform.enableMeanMode = True
+config.costMatching.linearEquationParameters.alpha = 5
+config.costMatching.linearEquationParameters.beta = 1
+config.costMatching.linearEquationParameters.threshold = 79
+config.costAggregation.horizontalPenaltyCostP1 = 2
+config.costAggregation.horizontalPenaltyCostP2 = 235
+config.postProcessing.temporalFilter.alpha = 0.1
+config.postProcessing.temporalFilter.delta = 3
+config.postProcessing.thresholdFilter.minRange = 0
+config.postProcessing.thresholdFilter.maxRange = 65000
+config.postProcessing.speckleFilter.enable = True
+config.postProcessing.speckleFilter.speckleRange = 8
+config.postProcessing.decimationFilter.decimationFactor = 1
+config.costMatching.disparityWidth = dai.StereoDepthConfig.CostMatching.DisparityWidth.DISPARITY_64
+
+stereo.initialConfig.set(config)
+
+
+stereo.setDepthAlign(align=dai.StereoDepthConfig.AlgorithmControl.DepthAlign.CENTER)
+stereo.setRectification(True)
+stereo.initialConfig.setSubpixel(True)
 
 # Switching depthAlign mode at runtime is not supported while aligning to a specific camera is enabled
 # stereo.setDepthAlign(dai.CameraBoardSocket.CAM_C)
